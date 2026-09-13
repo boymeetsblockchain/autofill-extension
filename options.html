@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>job_bot Autofill — Options</title>
+<style>
+  body { font: 14px/1.5 -apple-system, Segoe UI, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 20px; }
+  h2 { font-size: 15px; margin-top: 32px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+  label { display: block; margin-top: 12px; font-weight: 600; font-size: 12px; color: #444; }
+  input[type=text], input[type=email], input[type=tel], input[type=url], textarea, select {
+    width: 100%; box-sizing: border-box; padding: 6px 8px; margin-top: 4px;
+    border: 1px solid #ccc; border-radius: 4px; font: inherit;
+  }
+  textarea { min-height: 100px; font-family: monospace; font-size: 12px; }
+  .row { display: flex; gap: 16px; }
+  .row > div { flex: 1; }
+  button { margin-top: 12px; padding: 8px 16px; border: 1px solid #2563eb; background: #2563eb;
+    color: white; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  button.secondary { background: white; color: #2563eb; }
+  button:hover { opacity: 0.9; }
+  #save-status, #sync-status { margin-left: 10px; font-size: 12px; color: #1e5c1e; }
+  .hint { font-size: 11px; color: #777; margin-top: 4px; }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 12px; }
+  .checkbox-row label { margin: 0; }
+</style>
+</head>
+<body>
+  <h1>job_bot Autofill — Options</h1>
+
+  <h2>job_bot sync</h2>
+  <label for="jobBotServerUrl">Server URL</label>
+  <input type="text" id="jobBotServerUrl" placeholder="http://127.0.0.1:8787" />
+  <div class="checkbox-row">
+    <input type="checkbox" id="jobBotSyncEnabled" />
+    <label for="jobBotSyncEnabled" style="margin:0;">Use job_bot for cover letters &amp; status when available</label>
+  </div>
+  <button id="test-connection-btn" class="secondary">Test connection</button>
+  <button id="import-btn" class="secondary">Import profile + resume now</button>
+  <span id="sync-status"></span>
+  <div class="hint">Run <code>python cli.py serve</code> in your job_bot folder first. This is a one-time pull, not a background sync — click again after changing config.yaml.</div>
+
+  <h2>Standalone profile</h2>
+  <div class="row">
+    <div>
+      <label for="full_name">Full name</label>
+      <input type="text" id="full_name" />
+    </div>
+    <div>
+      <label for="email">Email</label>
+      <input type="email" id="email" />
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label for="phone">Phone</label>
+      <input type="tel" id="phone" />
+    </div>
+    <div>
+      <label for="location">Location</label>
+      <input type="text" id="location" />
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label for="linkedin_url">LinkedIn URL</label>
+      <input type="url" id="linkedin_url" />
+    </div>
+    <div>
+      <label for="portfolio_url">Portfolio URL</label>
+      <input type="url" id="portfolio_url" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label for="work_authorized">Work authorized?</label>
+      <select id="work_authorized">
+        <option value="">Unset (leave blank on forms)</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    </div>
+    <div>
+      <label for="requires_sponsorship">Requires sponsorship?</label>
+      <select id="requires_sponsorship">
+        <option value="">Unset (leave blank on forms)</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    </div>
+  </div>
+  <label for="years_of_experience">Years of experience</label>
+  <input type="text" id="years_of_experience" placeholder="e.g. 5" />
+
+  <label for="resume">Resume file</label>
+  <input type="file" id="resume" accept=".pdf,.doc,.docx" />
+  <div class="hint" id="resume-status">No resume saved.</div>
+
+  <h2>Default cover letter template (used when job_bot has no tailored letter)</h2>
+  <label for="coverLetterTemplate">Template — {job_title}, {company_name}, {full_name} get substituted</label>
+  <textarea id="coverLetterTemplate"></textarea>
+
+  <div>
+    <button id="save-btn">Save</button>
+    <span id="save-status"></span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

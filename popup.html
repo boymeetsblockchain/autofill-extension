@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>job_bot Autofill</title>
+<style>
+  body { width: 320px; font: 13px/1.4 -apple-system, Segoe UI, sans-serif; margin: 0; padding: 12px; color: #1a1a1a; }
+  h1 { font-size: 14px; margin: 0 0 8px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge.ats-greenhouse { background: #d7f0d7; color: #1e5c1e; }
+  .badge.ats-lever { background: #d7e6f0; color: #1e3f5c; }
+  .badge.ats-none { background: #eee; color: #666; }
+  .source { margin: 8px 0; font-size: 12px; color: #555; }
+  .source strong { color: #111; }
+  button { width: 100%; padding: 8px; margin-top: 8px; border: 1px solid #ccc; border-radius: 6px; background: #f7f7f7; cursor: pointer; font-size: 13px; }
+  button:hover:not(:disabled) { background: #eee; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.primary { background: #2563eb; color: white; border-color: #2563eb; }
+  button.primary:hover:not(:disabled) { background: #1d4ed8; }
+  #result { margin-top: 10px; font-size: 12px; white-space: pre-wrap; }
+  .reminder { margin-top: 10px; padding: 8px; background: #fff8e1; border-radius: 6px; font-size: 11px; color: #7a5c00; }
+  a { color: #2563eb; }
+</style>
+</head>
+<body>
+  <h1>job_bot Autofill</h1>
+  <div id="ats-badge" class="badge ats-none">Detecting…</div>
+  <div id="source" class="source">Checking job_bot…</div>
+
+  <button id="fill-btn" class="primary" disabled>Fill form</button>
+  <button id="applied-btn" disabled>Mark as applied</button>
+
+  <div id="result"></div>
+
+  <div class="reminder">Review every field before submitting — this never submits the application for you.</div>
+
+  <div style="margin-top:10px; text-align:right;">
+    <a href="#" id="open-options">Options</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

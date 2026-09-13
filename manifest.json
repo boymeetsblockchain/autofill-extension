@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "job_bot Autofill",
+  "version": "0.1.0",
+  "description": "Pre-fills Greenhouse/Lever job applications from your saved profile or a running job_bot instance. Never submits for you.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "http://127.0.0.1:8787/*",
+    "*://boards.greenhouse.io/*",
+    "*://job-boards.greenhouse.io/*",
+    "*://*.greenhouse.io/*",
+    "*://jobs.lever.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "job_bot Autofill"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["*://boards.greenhouse.io/*", "*://job-boards.greenhouse.io/*", "*://*.greenhouse.io/*"],
+      "js": ["content/shared.js", "content/greenhouse.js"],
+      "all_frames": true
+    },
+    {
+      "matches": ["*://jobs.lever.co/*"],
+      "js": ["content/shared.js", "content/lever.js"],
+      "all_frames": true
+    }
+  ]
+}
