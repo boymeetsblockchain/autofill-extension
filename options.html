@@ -31,6 +31,9 @@
   <h2>job_bot sync</h2>
   <label for="jobBotServerUrl">Server URL</label>
   <input type="text" id="jobBotServerUrl" placeholder="http://127.0.0.1:8787" />
+  <label for="jobBotToken">Server token</label>
+  <input type="text" id="jobBotToken" placeholder="paste the token printed by `python cli.py serve`" />
+  <div class="hint">Also saved in job_bot's own folder as <code>.server_token</code> if you need to look it up again. Delete that file (and restart the server) to rotate it.</div>
   <div class="checkbox-row">
     <input type="checkbox" id="jobBotSyncEnabled" />
     <label for="jobBotSyncEnabled" style="margin:0;">Use job_bot for cover letters &amp; status when available</label>

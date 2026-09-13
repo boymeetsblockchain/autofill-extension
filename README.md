@@ -24,8 +24,12 @@ In your job_bot folder, run:
 python cli.py serve
 ```
 
-This starts a local API at `http://127.0.0.1:8787` (loopback only). In the
-extension's Options page, make sure "Use job_bot..." is checked, then click
+This starts a local API at `http://127.0.0.1:8787` (loopback only) and prints
+an auth token the first time it runs (also saved to `.server_token` in the
+job_bot folder). Paste that token into the extension's Options page under
+"Server token" — every job_bot endpoint except `/health` requires it, since
+loopback binding alone doesn't stop other tabs in your browser from reading
+a wide-open local API. Then make sure "Use job_bot..." is checked and click
 **Import profile + resume now** to pull your `config.yaml` applicant info
 and resume in. From then on, opening the popup on a job page job_bot already
 tracks will use its tailored cover letter automatically, and **Mark as

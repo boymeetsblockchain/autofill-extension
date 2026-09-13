@@ -16,7 +16,7 @@ function selectToTriState(value) {
 
 async function load() {
   const data = await chrome.storage.local.get([
-    "profile", "resume", "coverLetterTemplate", "jobBotServerUrl", "jobBotSyncEnabled",
+    "profile", "resume", "coverLetterTemplate", "jobBotServerUrl", "jobBotSyncEnabled", "jobBotToken",
   ]);
   const profile = data.profile || {};
 
@@ -29,6 +29,7 @@ async function load() {
   }
 
   document.getElementById("jobBotServerUrl").value = data.jobBotServerUrl || "http://127.0.0.1:8787";
+  document.getElementById("jobBotToken").value = data.jobBotToken || "";
   document.getElementById("jobBotSyncEnabled").checked = data.jobBotSyncEnabled !== false;
   document.getElementById("coverLetterTemplate").value = data.coverLetterTemplate || "";
 
@@ -60,6 +61,7 @@ document.getElementById("save-btn").addEventListener("click", async () => {
     profile,
     coverLetterTemplate: document.getElementById("coverLetterTemplate").value,
     jobBotServerUrl: document.getElementById("jobBotServerUrl").value.trim() || "http://127.0.0.1:8787",
+    jobBotToken: document.getElementById("jobBotToken").value.trim(),
     jobBotSyncEnabled: document.getElementById("jobBotSyncEnabled").checked,
   };
 
@@ -82,20 +84,24 @@ document.getElementById("save-btn").addEventListener("click", async () => {
 
 document.getElementById("test-connection-btn").addEventListener("click", async () => {
   const serverUrl = document.getElementById("jobBotServerUrl").value.trim();
+  const token = document.getElementById("jobBotToken").value.trim();
   const status = document.getElementById("sync-status");
   status.textContent = "Testing…";
-  const res = await chrome.runtime.sendMessage({ type: "TEST_CONNECTION", serverUrl });
+  const res = await chrome.runtime.sendMessage({ type: "TEST_CONNECTION", serverUrl, token });
   status.textContent = res && res.ok ? "Connected." : "Could not reach job_bot server.";
 });
 
 document.getElementById("import-btn").addEventListener("click", async () => {
   const serverUrl = document.getElementById("jobBotServerUrl").value.trim();
+  const token = document.getElementById("jobBotToken").value.trim();
   const status = document.getElementById("sync-status");
   status.textContent = "Importing…";
-  const res = await chrome.runtime.sendMessage({ type: "IMPORT_FROM_JOBBOT", serverUrl });
+  const res = await chrome.runtime.sendMessage({ type: "IMPORT_FROM_JOBBOT", serverUrl, token });
   if (res && res.ok) {
     status.textContent = res.data.resumeImported ? "Imported profile + resume." : "Imported profile (no resume found).";
     load();
+  } else if (res && res.status === 401) {
+    status.textContent = "Import failed — token rejected. Check the token pasted above matches .server_token.";
   } else {
     status.textContent = "Import failed — is `python cli.py serve` running?";
   }

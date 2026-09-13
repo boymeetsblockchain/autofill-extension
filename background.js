@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS = {
     "I'd welcome the chance to discuss how my experience could contribute to your team.\n\n" +
     "Best regards,\n{full_name}",
   jobBotServerUrl: "http://127.0.0.1:8787",
+  jobBotToken: "",
   jobBotSyncEnabled: true,
 };
 
@@ -28,9 +29,13 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (Object.keys(toSet).length) await chrome.storage.local.set(toSet);
 });
 
-async function fetchJson(url, options) {
+function authHeaders(token) {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function fetchJson(url, options = {}, token) {
   try {
-    const res = await fetch(url, options);
+    const res = await fetch(url, { ...options, headers: { ...(options.headers || {}), ...authHeaders(token) } });
     if (!res.ok) return { ok: false, status: res.status, error: await res.json().catch(() => null) };
     return { ok: true, data: await res.json() };
   } catch (e) {
@@ -39,25 +44,25 @@ async function fetchJson(url, options) {
   }
 }
 
-async function fetchJobByUrl(serverUrl, jobUrl) {
-  return fetchJson(`${serverUrl}/job?url=${encodeURIComponent(jobUrl)}`);
+async function fetchJobByUrl(serverUrl, jobUrl, token) {
+  return fetchJson(`${serverUrl}/job?url=${encodeURIComponent(jobUrl)}`, {}, token);
 }
 
-async function setJobStatus(serverUrl, id, status) {
-  return fetchJson(`${serverUrl}/status`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, status }),
-  });
+async function setJobStatus(serverUrl, id, status, token) {
+  return fetchJson(
+    `${serverUrl}/status`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) },
+    token
+  );
 }
 
-async function importFromJobBot(serverUrl) {
-  const applicantRes = await fetchJson(`${serverUrl}/applicant`);
+async function importFromJobBot(serverUrl, token) {
+  const applicantRes = await fetchJson(`${serverUrl}/applicant`, {}, token);
   if (!applicantRes.ok) return applicantRes;
 
   let resume = null;
   try {
-    const resumeRes = await fetch(`${serverUrl}/resume`);
+    const resumeRes = await fetch(`${serverUrl}/resume`, { headers: authHeaders(token) });
     if (resumeRes.ok) {
       const blob = await resumeRes.blob();
       const buf = await blob.arrayBuffer();
@@ -95,21 +100,22 @@ async function importFromJobBot(serverUrl) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
-    const { jobBotServerUrl } = await chrome.storage.local.get(["jobBotServerUrl"]);
+    const { jobBotServerUrl, jobBotToken } = await chrome.storage.local.get(["jobBotServerUrl", "jobBotToken"]);
     const serverUrl = message.serverUrl || jobBotServerUrl || DEFAULT_SETTINGS.jobBotServerUrl;
+    const token = message.token !== undefined ? message.token : jobBotToken;
 
     switch (message.type) {
       case "GET_JOB_BY_URL":
-        sendResponse(await fetchJobByUrl(serverUrl, message.url));
+        sendResponse(await fetchJobByUrl(serverUrl, message.url, token));
         break;
       case "SET_STATUS":
-        sendResponse(await setJobStatus(serverUrl, message.id, message.status));
+        sendResponse(await setJobStatus(serverUrl, message.id, message.status, token));
         break;
       case "IMPORT_FROM_JOBBOT":
-        sendResponse(await importFromJobBot(serverUrl));
+        sendResponse(await importFromJobBot(serverUrl, token));
         break;
       case "TEST_CONNECTION":
-        sendResponse(await fetchJson(`${serverUrl}/health`));
+        sendResponse(await fetchJson(`${serverUrl}/health`, {}, token));
         break;
       default:
         sendResponse({ ok: false, error: "unknown_message_type" });
