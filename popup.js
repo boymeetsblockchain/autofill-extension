@@ -29,14 +29,13 @@ async function init() {
   const sourceEl = document.getElementById("source");
 
   if (!state.ats) {
-    badge.textContent = "Not a supported ATS";
+    badge.textContent = "Unrecognized site — best effort";
     badge.className = "badge ats-none";
-    sourceEl.textContent = "Open a Greenhouse or Lever job page to use autofill.";
-    return;
+    fillBtn.textContent = "Fill form (best-effort)";
+  } else {
+    badge.textContent = state.ats === "greenhouse" ? "Greenhouse" : "Lever";
+    badge.className = `badge ats-${state.ats}`;
   }
-
-  badge.textContent = state.ats === "greenhouse" ? "Greenhouse" : "Lever";
-  badge.className = `badge ats-${state.ats}`;
   fillBtn.disabled = false;
 
   const settings = await chrome.storage.local.get(["jobBotSyncEnabled", "coverLetterTemplate", "profile"]);
@@ -78,12 +77,32 @@ function summarize(result) {
   return lines.join("\n");
 }
 
+// content/greenhouse.js and content/lever.js are declared in manifest.json
+// and auto-inject on their matching hostnames. For everything else, inject
+// the generic fallback here, on demand, guarded against double-injection
+// (re-running shared.js's top-level `let`s a second time throws).
+async function ensureGenericInjected(tabId) {
+  const [{ result: ready }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => !!window.__jobBotGenericReady,
+  });
+  if (!ready) {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content/shared.js", "content/generic.js"],
+    });
+  }
+}
+
 document.getElementById("fill-btn").addEventListener("click", async () => {
   const resultEl = document.getElementById("result");
   resultEl.textContent = "Filling…";
   const { profile, resume } = await chrome.storage.local.get(["profile", "resume"]);
 
   try {
+    if (!state.ats) {
+      await ensureGenericInjected(state.tab.id);
+    }
     const response = await chrome.tabs.sendMessage(state.tab.id, {
       type: "AUTOFILL",
       payload: { profile, resume, coverLetter: state.coverLetter },
@@ -93,6 +112,7 @@ document.getElementById("fill-btn").addEventListener("click", async () => {
       return;
     }
     resultEl.textContent = summarize(response.result);
+    if (!state.ats) resultEl.textContent += "\n(Best-effort match — double-check every field.)";
   } catch (e) {
     resultEl.textContent = `Could not reach the page's content script: ${e}`;
   }

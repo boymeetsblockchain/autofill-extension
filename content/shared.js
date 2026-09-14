@@ -33,6 +33,17 @@ function fillField(selector, value) {
   }
 }
 
+// Tries each selector in order, first one that actually fills wins. Used by
+// the generic fallback matcher, which has to guess at several possible
+// selectors per logical field instead of knowing one exact selector.
+function fillFirstMatch(selectors, value) {
+  for (const selector of selectors) {
+    const result = fillField(selector, value);
+    if (result.filled) return result;
+  }
+  return { selector: selectors[0], filled: false, reason: "no_match" };
+}
+
 // Mirrors try_answer: resolve a control by its <label> text (regex, case
 // insensitive already baked into the RegExp passed in), first match wins.
 // <select> is matched by visible option text; everything else gets the
@@ -101,10 +112,14 @@ function base64ToBytes(base64) {
 
 // Mirrors try_upload, plus the fallback the user asked for: if programmatic
 // assignment fails (selector missing, or the site rejects it), highlight the
-// field instead of failing silently.
-function uploadResume(selector, resume) {
+// field instead of failing silently. Accepts either a selector string (the
+// two dedicated field maps know their exact selector) or an element directly
+// (the generic fallback resolves the file input by heuristics, not a fixed
+// selector).
+function uploadResume(selectorOrEl, resume) {
+  const selector = typeof selectorOrEl === "string" ? selectorOrEl : "(resolved element)";
   if (!resume || !resume.base64) return { selector, attached: false, reason: "no_resume" };
-  const el = document.querySelector(selector);
+  const el = typeof selectorOrEl === "string" ? document.querySelector(selectorOrEl) : selectorOrEl;
   if (!el) return { selector, attached: false, reason: "not_found" };
   try {
     const bytes = base64ToBytes(resume.base64);

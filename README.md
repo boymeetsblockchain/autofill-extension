@@ -39,6 +39,17 @@ If job_bot isn't running, or the job isn't tracked, the extension silently
 falls back to the standalone profile/template — no errors, just the
 fallback path.
 
+## Sites without a dedicated field map
+
+Greenhouse and Lever get exact selectors (see below). On anything else —
+Ashby, Workday, a company's own custom form — the popup still offers **Fill
+form (best-effort)**: it guesses fields from common `name`/`id`/`autocomplete`/
+`type` attribute patterns (e.g. `input[name*='first' i]`,
+`input[autocomplete='email']`) instead of a known selector. This is
+meaningfully less reliable than the dedicated scripts — it only fills a
+field it's reasonably confident about and never guesses on anything
+ambiguous, but double-check every field before submitting.
+
 ## What it fills
 
 - **Greenhouse**: first/last name, email, phone, resume, cover letter,
