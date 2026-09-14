@@ -8,6 +8,20 @@
 // rather than declared in manifest.json, since it only makes sense on pages
 // the two dedicated scripts didn't already handle.
 
+// Custom ATS/careers forms often give inputs opaque name/id attributes
+// (field_12, input_3, ...) with the real meaning only in the <label> text --
+// e.g. a label reading "LinkedIn Profile or url" over an input with no
+// "linkedin" anywhere in its attributes. Try the attribute guess first
+// (cheaper, and more precise when it hits); fall back to label-text
+// matching (same mechanism as the screening-question answerer) so those
+// forms don't silently get skipped.
+function fillByAttrsOrLabel(selectors, labelRegex, value) {
+  const attrResult = fillFirstMatch(selectors, value);
+  if (attrResult.filled) return attrResult;
+  const labelResult = answerByLabel(labelRegex, value);
+  return { filled: labelResult.answered, selector: `label:${labelRegex.source}`, reason: labelResult.reason };
+}
+
 function findResumeInput() {
   const named = document.querySelector(
     "input[type='file'][name*='resume' i], input[type='file'][id*='resume' i], " +
@@ -27,47 +41,64 @@ registerFillFn(function fillGeneric({ profile = {}, resume, coverLetter }) {
   const [firstName, ...rest] = fullName.split(" ");
   const lastName = rest.join(" ");
 
-  const firstFilled = fillFirstMatch(
+  const firstFilled = fillByAttrsOrLabel(
     ["input[autocomplete='given-name']", "input[name*='first' i]", "input[id*='first' i]"],
+    /first name/i,
     firstName
   );
   results.filled.push(firstFilled);
   results.filled.push(
-    fillFirstMatch(["input[autocomplete='family-name']", "input[name*='last' i]", "input[id*='last' i]"], lastName)
+    fillByAttrsOrLabel(
+      ["input[autocomplete='family-name']", "input[name*='last' i]", "input[id*='last' i]"],
+      /last name|surname/i,
+      lastName
+    )
   );
   // No split first/last fields found -- try a single full-name field instead.
   if (!firstFilled.filled) {
     results.filled.push(
-      fillFirstMatch(
+      fillByAttrsOrLabel(
         ["input[autocomplete='name']", "input[name='name' i]", "input[name*='fullname' i]", "input[id*='fullname' i]"],
+        /^\s*(full |your )?name\s*$/i,
         fullName
       )
     );
   }
 
   results.filled.push(
-    fillFirstMatch(
+    fillByAttrsOrLabel(
       ["input[type='email']", "input[autocomplete='email']", "input[name*='email' i]", "input[id*='email' i]"],
+      /email/i,
       profile.email
     )
   );
   results.filled.push(
-    fillFirstMatch(
+    fillByAttrsOrLabel(
       ["input[type='tel']", "input[autocomplete='tel']", "input[name*='phone' i]", "input[id*='phone' i]"],
+      /phone|mobile/i,
       profile.phone
     )
   );
   results.filled.push(
-    fillFirstMatch(["input[name*='linkedin' i]", "input[id*='linkedin' i]"], profile.linkedin_url)
+    fillByAttrsOrLabel(
+      ["input[name*='linkedin' i]", "input[id*='linkedin' i]"],
+      /linkedin/i,
+      profile.linkedin_url
+    )
   );
   results.filled.push(
-    fillFirstMatch(
+    fillByAttrsOrLabel(
       ["input[name*='portfolio' i]", "input[id*='portfolio' i]", "input[name*='website' i]", "input[id*='website' i]"],
+      /portfolio|website|personal site/i,
       profile.portfolio_url
     )
   );
   results.filled.push(
-    fillFirstMatch(["textarea[name*='cover' i]", "textarea[id*='cover' i]", "textarea[name*='letter' i]"], coverLetter)
+    fillByAttrsOrLabel(
+      ["textarea[name*='cover' i]", "textarea[id*='cover' i]", "textarea[name*='letter' i]"],
+      /cover letter/i,
+      coverLetter
+    )
   );
 
   const resumeInput = findResumeInput();
