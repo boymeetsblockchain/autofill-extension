@@ -20,17 +20,22 @@ function setNativeValue(el, value) {
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function fillElement(el, value) {
+  if (!value) return { filled: false, reason: "no_value" };
+  try {
+    setNativeValue(el, value);
+    return { filled: true };
+  } catch (e) {
+    return { filled: false, reason: String(e) };
+  }
+}
+
 // Mirrors try_fill: no-op on falsy value, silently skip if selector not found.
 function fillField(selector, value) {
   if (!value) return { selector, filled: false, reason: "no_value" };
   const el = document.querySelector(selector);
   if (!el) return { selector, filled: false, reason: "not_found" };
-  try {
-    setNativeValue(el, value);
-    return { selector, filled: true };
-  } catch (e) {
-    return { selector, filled: false, reason: String(e) };
-  }
+  return { selector, el, ...fillElement(el, value) };
 }
 
 // Tries each selector in order, first one that actually fills wins. Used by
@@ -75,15 +80,15 @@ function answerByLabel(regex, value) {
       const option = Array.from(el.options).find(
         (o) => (o.textContent || "").trim().toLowerCase() === target
       );
-      if (!option) return { label: regex.source, answered: false, reason: "option_not_found" };
+      if (!option) return { label: regex.source, el, answered: false, reason: "option_not_found" };
       el.value = option.value;
       el.dispatchEvent(new Event("change", { bubbles: true }));
     } else {
       setNativeValue(el, String(value));
     }
-    return { label: regex.source, answered: true };
+    return { label: regex.source, el, answered: true };
   } catch (e) {
-    return { label: regex.source, answered: false, reason: String(e) };
+    return { label: regex.source, el, answered: false, reason: String(e) };
   }
 }
 
@@ -137,6 +142,84 @@ function uploadResume(selectorOrEl, resume) {
   }
 }
 
+// The reverse of findByLabel: given a form control, find its label's text.
+// Used to describe an unanswered open-ended question (e.g. a textarea) back
+// to the AI-assist flow, which only has the DOM element, not label text.
+function getLabelText(el) {
+  if (el.id) {
+    const label = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+    if (label) return (label.textContent || "").trim();
+  }
+  const wrapping = el.closest("label");
+  if (wrapping) return (wrapping.textContent || "").trim();
+  const ariaLabel = el.getAttribute("aria-label");
+  if (ariaLabel) return ariaLabel.trim();
+  const labelledBy = el.getAttribute("aria-labelledby");
+  if (labelledBy) {
+    const labelEl = document.getElementById(labelledBy);
+    if (labelEl) return (labelEl.textContent || "").trim();
+  }
+  return "";
+}
+
+// AI-assist support: after the deterministic fill pass, the site scripts
+// register which element (if any) they used for the cover letter, then scan
+// for other still-empty textareas that look like real open-ended questions
+// (a real label, not just a placeholder). Filled in later via FILL_ANSWERS
+// once the popup has asked job_bot to generate an answer for each -- kept as
+// a two-step handshake because answering needs a network round trip the
+// content script itself shouldn't own.
+let COVER_LETTER_EL = null;
+let PENDING_QUESTIONS = [];
+
+function registerCoverLetterElement(el) {
+  COVER_LETTER_EL = el || null;
+}
+
+function scanOpenQuestions() {
+  PENDING_QUESTIONS = [];
+  const found = [];
+  for (const el of document.querySelectorAll("textarea")) {
+    if (el === COVER_LETTER_EL) continue;
+    if (el.value && el.value.trim()) continue; // already filled, deterministically or otherwise
+    const label = getLabelText(el);
+    if (label.trim().length < 8) continue; // too short to trust as a real question
+    const index = PENDING_QUESTIONS.length;
+    PENDING_QUESTIONS.push(el);
+    found.push({ index, question: label.trim() });
+  }
+  return found;
+}
+
+function fillAnswers(answers) {
+  let filled = 0;
+  for (const { index, value } of answers || []) {
+    const el = PENDING_QUESTIONS[index];
+    if (el && value && fillElement(el, value).filled) filled++;
+  }
+  return { filled };
+}
+
+function fillCoverLetterElement(value) {
+  if (!COVER_LETTER_EL) return { filled: false, reason: "not_found" };
+  return fillElement(COVER_LETTER_EL, value);
+}
+
+// Best-effort job title/company/description scrape for the AI-assist calls
+// -- there's no structured selector that works across every ATS, so this
+// leans on the page <title> (usually "Job Title at Company" or "Job Title -
+// Company") and falls back to the whole visible body text for context. Much
+// fuzzier than job_bot's own API-sourced job descriptions; good enough to
+// ground a generated answer, not meant to be exact.
+function scrapePageContext() {
+  const title = document.title || "";
+  const parts = title.split(/\s+[-|]\s+|\s+at\s+/i).map((s) => s.trim()).filter(Boolean);
+  const jobTitle = parts[0] || title;
+  const companyName = parts.length >= 2 ? parts[1] : "";
+  const description = (document.body.innerText || "").slice(0, 6000);
+  return { jobTitle, companyName, description };
+}
+
 function detectATS() {
   const host = window.location.hostname;
   if (host.includes("greenhouse.io")) return "greenhouse";
@@ -151,16 +234,31 @@ function registerFillFn(fn) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type !== "AUTOFILL") return undefined;
-  if (!SITE_FILL_FN) {
-    sendResponse({ ok: false, reason: "unsupported_site" });
-    return undefined;
-  }
-  try {
-    const result = SITE_FILL_FN(message.payload || {});
-    sendResponse({ ok: true, result });
-  } catch (e) {
-    sendResponse({ ok: false, reason: String(e) });
+  switch (message.type) {
+    case "AUTOFILL": {
+      if (!SITE_FILL_FN) {
+        sendResponse({ ok: false, reason: "unsupported_site" });
+        break;
+      }
+      try {
+        const result = SITE_FILL_FN(message.payload || {});
+        sendResponse({ ok: true, result });
+      } catch (e) {
+        sendResponse({ ok: false, reason: String(e) });
+      }
+      break;
+    }
+    case "GET_PAGE_CONTEXT":
+      sendResponse({ ok: true, context: scrapePageContext() });
+      break;
+    case "FILL_ANSWERS":
+      sendResponse({ ok: true, result: fillAnswers(message.answers) });
+      break;
+    case "FILL_COVER_LETTER":
+      sendResponse({ ok: true, result: fillCoverLetterElement(message.value) });
+      break;
+    default:
+      return undefined; // not ours -- let any other listener handle it
   }
   return undefined;
 });

@@ -19,7 +19,12 @@ function fillByAttrsOrLabel(selectors, labelRegex, value) {
   const attrResult = fillFirstMatch(selectors, value);
   if (attrResult.filled) return attrResult;
   const labelResult = answerByLabel(labelRegex, value);
-  return { filled: labelResult.answered, selector: `label:${labelRegex.source}`, reason: labelResult.reason };
+  return {
+    filled: labelResult.answered,
+    selector: `label:${labelRegex.source}`,
+    reason: labelResult.reason,
+    el: labelResult.el,
+  };
 }
 
 function findResumeInput() {
@@ -93,12 +98,15 @@ registerFillFn(function fillGeneric({ profile = {}, resume, coverLetter }) {
       profile.portfolio_url
     )
   );
-  results.filled.push(
-    fillByAttrsOrLabel(
-      ["textarea[name*='cover' i]", "textarea[id*='cover' i]", "textarea[name*='letter' i]"],
-      /cover letter/i,
-      coverLetter
-    )
+  const coverLetterSelectors = ["textarea[name*='cover' i]", "textarea[id*='cover' i]", "textarea[name*='letter' i]"];
+  const coverLetterResult = fillByAttrsOrLabel(coverLetterSelectors, /cover letter/i, coverLetter);
+  results.filled.push(coverLetterResult);
+  // fillByAttrsOrLabel short-circuits without touching the DOM when
+  // coverLetter itself is falsy (e.g. AI assist hasn't generated one yet),
+  // so it can't have found an element to remember -- look independently of
+  // any value so a later AI-generated letter still has somewhere to land.
+  registerCoverLetterElement(
+    coverLetterResult.el || document.querySelector(coverLetterSelectors.join(",")) || findByLabel(/cover letter/i)
   );
 
   const resumeInput = findResumeInput();
@@ -127,6 +135,8 @@ registerFillFn(function fillGeneric({ profile = {}, resume, coverLetter }) {
       answerByLabel(/years of (relevant )?experience/i, String(profile.years_of_experience))
     );
   }
+
+  results.openQuestions = scanOpenQuestions();
 
   return results;
 });

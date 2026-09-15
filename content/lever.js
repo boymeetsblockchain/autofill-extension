@@ -15,7 +15,9 @@ registerFillFn(function fillLever({ profile = {}, resume, coverLetter }) {
   results.resumeAttached = resumeResult.attached;
   results.resumeDetail = resumeResult;
 
-  results.filled.push(fillField("textarea[name='comments']", coverLetter));
+  const coverLetterResult = fillField("textarea[name='comments']", coverLetter);
+  results.filled.push(coverLetterResult);
+  registerCoverLetterElement(coverLetterResult.el || document.querySelector("textarea[name='comments']"));
 
   // Same three screening questions as Greenhouse, same regexes.
   if (profile.work_authorized !== null && profile.work_authorized !== undefined) {
@@ -33,6 +35,8 @@ registerFillFn(function fillLever({ profile = {}, resume, coverLetter }) {
       answerByLabel(/years of (relevant )?experience/i, String(profile.years_of_experience))
     );
   }
+
+  results.openQuestions = scanOpenQuestions();
 
   return results;
 });

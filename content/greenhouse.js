@@ -15,7 +15,9 @@ registerFillFn(function fillGreenhouse({ profile = {}, resume, coverLetter }) {
   results.resumeDetail = resumeResult;
 
   // Greenhouse often has a "cover letter" textarea, or an upload field.
-  results.filled.push(fillField("#cover_letter_text", coverLetter));
+  const coverLetterResult = fillField("#cover_letter_text", coverLetter);
+  results.filled.push(coverLetterResult);
+  registerCoverLetterElement(coverLetterResult.el || document.querySelector("#cover_letter_text"));
 
   // Common optional links
   results.filled.push(fillField("input[name*='linkedin' i]", profile.linkedin_url));
@@ -40,6 +42,8 @@ registerFillFn(function fillGreenhouse({ profile = {}, resume, coverLetter }) {
       answerByLabel(/years of (relevant )?experience/i, String(profile.years_of_experience))
     );
   }
+
+  results.openQuestions = scanOpenQuestions();
 
   return results;
 });

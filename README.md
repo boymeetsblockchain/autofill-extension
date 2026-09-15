@@ -50,6 +50,25 @@ meaningfully less reliable than the dedicated scripts — it only fills a
 field it's reasonably confident about and never guesses on anything
 ambiguous, but double-check every field before submitting.
 
+## AI-generated cover letters &amp; open-question answers (opt-in)
+
+Off by default. Enable "Auto-generate cover letters & answer open questions
+with AI" in Options to have Fill also:
+- Generate a fresh tailored cover letter via job_bot's `/tailor` endpoint
+  whenever it didn't already pull a real one from a tracked job (never
+  re-templates over an actual job_bot-tailored letter).
+- Scan the form for any still-empty long-answer question (a `<textarea>`
+  with a real associated label — e.g. "Why do you want to work here?") that
+  the fixed work-authorization/sponsorship/years-of-experience matching
+  doesn't cover, and answer each one via job_bot's `/answer` endpoint.
+
+Both call OpenAI through job_bot (your key, never the browser) using
+`applicant.resume_summary` from `config.yaml` for grounding, plus a
+best-effort scrape of the page's title and visible text for job context —
+fuzzier than job_bot's own API-sourced descriptions, so **always review
+generated text before submitting**. Requires job_bot sync to be on; each
+Fill click with this enabled makes real OpenAI API calls.
+
 ## What it fills
 
 - **Greenhouse**: first/last name, email, phone, resume, cover letter,

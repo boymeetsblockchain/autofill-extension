@@ -17,6 +17,7 @@ function selectToTriState(value) {
 async function load() {
   const data = await chrome.storage.local.get([
     "profile", "resume", "coverLetterTemplate", "jobBotServerUrl", "jobBotSyncEnabled", "jobBotToken",
+    "aiAssistEnabled",
   ]);
   const profile = data.profile || {};
 
@@ -31,6 +32,7 @@ async function load() {
   document.getElementById("jobBotServerUrl").value = data.jobBotServerUrl || "http://127.0.0.1:8787";
   document.getElementById("jobBotToken").value = data.jobBotToken || "";
   document.getElementById("jobBotSyncEnabled").checked = data.jobBotSyncEnabled !== false;
+  document.getElementById("aiAssistEnabled").checked = !!data.aiAssistEnabled;
   document.getElementById("coverLetterTemplate").value = data.coverLetterTemplate || "";
 
   const resumeStatus = document.getElementById("resume-status");
@@ -63,6 +65,7 @@ document.getElementById("save-btn").addEventListener("click", async () => {
     jobBotServerUrl: document.getElementById("jobBotServerUrl").value.trim() || "http://127.0.0.1:8787",
     jobBotToken: document.getElementById("jobBotToken").value.trim(),
     jobBotSyncEnabled: document.getElementById("jobBotSyncEnabled").checked,
+    aiAssistEnabled: document.getElementById("aiAssistEnabled").checked,
   };
 
   const fileInput = document.getElementById("resume");

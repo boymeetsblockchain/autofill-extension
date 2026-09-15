@@ -43,6 +43,14 @@
   <span id="sync-status"></span>
   <div class="hint">Run <code>python cli.py serve</code> in your job_bot folder first. This is a one-time pull, not a background sync — click again after changing config.yaml.</div>
 
+  <div class="checkbox-row">
+    <input type="checkbox" id="aiAssistEnabled" />
+    <label for="aiAssistEnabled" style="margin:0;">Auto-generate cover letters &amp; answer open questions with AI</label>
+  </div>
+  <div class="hint">
+    Uses job_bot's <code>/tailor</code> and <code>/answer</code> endpoints (your OpenAI key, billed to your OpenAI account) every time you click Fill — regenerates the cover letter when job_bot doesn't already have a tailored one for this job, and answers any still-empty long-answer question it finds on the form (e.g. "Why do you want to work here?"). Requires job_bot sync above and <code>applicant.resume_summary</code> set in <code>config.yaml</code>. Off by default since it spends real API credits on every fill — always review generated text before submitting.
+  </div>
+
   <h2>Standalone profile</h2>
   <div class="row">
     <div>

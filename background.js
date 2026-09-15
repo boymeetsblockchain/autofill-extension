@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS = {
   jobBotServerUrl: "http://127.0.0.1:8787",
   jobBotToken: "",
   jobBotSyncEnabled: true,
+  aiAssistEnabled: false,
 };
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -98,6 +99,32 @@ async function importFromJobBot(serverUrl, token) {
   return { ok: true, data: { profile, resumeImported: !!resume } };
 }
 
+async function generateCoverLetter(serverUrl, token, { jobTitle, companyName, description }) {
+  return fetchJson(
+    `${serverUrl}/tailor`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_title: jobTitle, company_name: companyName, job_description: description }),
+    },
+    token
+  );
+}
+
+async function answerQuestion(serverUrl, token, { question, jobTitle, companyName, description }) {
+  return fetchJson(
+    `${serverUrl}/answer`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question, job_title: jobTitle, company_name: companyName, job_description: description,
+      }),
+    },
+    token
+  );
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     const { jobBotServerUrl, jobBotToken } = await chrome.storage.local.get(["jobBotServerUrl", "jobBotToken"]);
@@ -116,6 +143,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         break;
       case "TEST_CONNECTION":
         sendResponse(await fetchJson(`${serverUrl}/health`, {}, token));
+        break;
+      case "GENERATE_COVER_LETTER":
+        sendResponse(await generateCoverLetter(serverUrl, token, message));
+        break;
+      case "ANSWER_QUESTION":
+        sendResponse(await answerQuestion(serverUrl, token, message));
         break;
       default:
         sendResponse({ ok: false, error: "unknown_message_type" });

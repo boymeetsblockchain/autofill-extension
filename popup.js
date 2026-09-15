@@ -47,7 +47,10 @@ async function init() {
     const res = await sendToBackground({ type: "GET_JOB_BY_URL", url: tab.url });
     if (res && res.ok && res.data) {
       state.jobId = res.data.id;
-      if (res.data.cover_letter) coverLetter = res.data.cover_letter;
+      if (res.data.cover_letter) {
+        coverLetter = res.data.cover_letter;
+        state.coverLetterFromJobBot = true;
+      }
       sourceEl.innerHTML = `Resolved from job_bot: <strong>${escapeHtml(res.data.title)}</strong> @ ${escapeHtml(res.data.company)}`;
       document.getElementById("applied-btn").disabled = false;
     } else if (res && res.unreachable) {
@@ -94,10 +97,58 @@ async function ensureGenericInjected(tabId) {
   }
 }
 
+// Opt-in (see Options) -- each call spends real OpenAI credits via job_bot,
+// so this only runs after an explicit Fill click, never automatically, and
+// only when the user has turned it on. Regenerates the cover letter only
+// if it wasn't already a real tailored one pulled from job_bot (no point
+// re-templating over that), then answers whatever open-ended questions the
+// deterministic fill pass left behind.
+async function runAiAssist(fillResult, resultEl) {
+  const context = await chrome.tabs
+    .sendMessage(state.tab.id, { type: "GET_PAGE_CONTEXT" })
+    .then((r) => (r && r.ok ? r.context : {}))
+    .catch(() => ({}));
+  const jobTitle = context.jobTitle || "";
+  const companyName = context.companyName || "";
+  const description = context.description || "";
+
+  if (!state.coverLetterFromJobBot) {
+    resultEl.textContent += "\nGenerating cover letter…";
+    const res = await sendToBackground({ type: "GENERATE_COVER_LETTER", jobTitle, companyName, description });
+    if (res && res.ok && res.data && res.data.cover_letter) {
+      await chrome.tabs.sendMessage(state.tab.id, { type: "FILL_COVER_LETTER", value: res.data.cover_letter });
+      resultEl.textContent += " done.";
+    } else {
+      const detail = (res && res.error && res.error.detail) || (res && res.unreachable && "job_bot not running") || "failed";
+      resultEl.textContent += ` skipped (${detail}).`;
+    }
+  }
+
+  const openQuestions = (fillResult && fillResult.openQuestions) || [];
+  if (openQuestions.length) {
+    resultEl.textContent += `\nAnswering ${openQuestions.length} open question(s)…`;
+    const answers = [];
+    for (const q of openQuestions) {
+      const res = await sendToBackground({
+        type: "ANSWER_QUESTION", question: q.question, jobTitle, companyName, description,
+      });
+      if (res && res.ok && res.data && res.data.answer) {
+        answers.push({ index: q.index, value: res.data.answer });
+      }
+    }
+    if (answers.length) {
+      await chrome.tabs.sendMessage(state.tab.id, { type: "FILL_ANSWERS", answers });
+    }
+    resultEl.textContent += ` answered ${answers.length}/${openQuestions.length} — review before submitting.`;
+  }
+}
+
 document.getElementById("fill-btn").addEventListener("click", async () => {
   const resultEl = document.getElementById("result");
   resultEl.textContent = "Filling…";
-  const { profile, resume } = await chrome.storage.local.get(["profile", "resume"]);
+  const { profile, resume, aiAssistEnabled, jobBotSyncEnabled } = await chrome.storage.local.get([
+    "profile", "resume", "aiAssistEnabled", "jobBotSyncEnabled",
+  ]);
 
   try {
     if (!state.ats) {
@@ -113,6 +164,10 @@ document.getElementById("fill-btn").addEventListener("click", async () => {
     }
     resultEl.textContent = summarize(response.result);
     if (!state.ats) resultEl.textContent += "\n(Best-effort match — double-check every field.)";
+
+    if (aiAssistEnabled && jobBotSyncEnabled !== false) {
+      await runAiAssist(response.result, resultEl);
+    }
   } catch (e) {
     resultEl.textContent = `Could not reach the page's content script: ${e}`;
   }
